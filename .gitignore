@@ -33,3 +33,5 @@ pnpm-debug.log*
 
 # Optional: local development files
 *.local 
+# @meetsmore/noticer, record of notices seen by you.
+.noticer/seen.json

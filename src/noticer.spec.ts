@@ -40,14 +40,40 @@ describe('noticer CLI', () => {
   })
 
   describe('init', () => {
-    it('WILL install itself into the postinstall script', () => {
+    it('WILL install itself into the postinstall script with npm by default', () => {
       execSync(`node ${cliPath} init`, {
         env: { ...process.env, HOME: tmpDir },
         cwd: tmpDir,
       })
 
       const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
-      expect(pkg.scripts.postinstall).toBe('noticer show')
+      expect(pkg.scripts.postinstall).toBe('npm noticer show')
+    })
+
+    it('WILL use pnpm when pnpm-lock.yaml exists', () => {
+      // Create pnpm lock file
+      fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '')
+
+      execSync(`node ${cliPath} init`, {
+        env: { ...process.env, HOME: tmpDir },
+        cwd: tmpDir,
+      })
+
+      const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
+      expect(pkg.scripts.postinstall).toBe('pnpm noticer show')
+    })
+
+    it('WILL use yarn when yarn.lock exists', () => {
+      // Create yarn lock file
+      fs.writeFileSync(path.join(tmpDir, 'yarn.lock'), '')
+
+      execSync(`node ${cliPath} init`, {
+        env: { ...process.env, HOME: tmpDir },
+        cwd: tmpDir,
+      })
+
+      const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
+      expect(pkg.scripts.postinstall).toBe('yarn noticer show')
     })
 
     it('WILL add `.noticer/seen.json` to .gitignore', () => {
@@ -85,6 +111,27 @@ describe('noticer CLI', () => {
       // Verify results are identical
       expect(secondRunPkg).toEqual(firstRunPkg)
       expect(secondRunGitignore).toBe(firstRunGitignore)
+    })
+
+    describe('.jj support', () => {
+      it('WILL support .jj for version control.', () => {
+        // Create .jj directory instead of .git
+        fs.removeSync(path.join(tmpDir, '.git'))
+        fs.ensureDirSync(path.join(tmpDir, '.jj'))
+
+        execSync(`node ${cliPath} init`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir,
+        })
+
+        // Check that .noticer/seen.json is added to .gitignore
+        const gitignore = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf8')
+        expect(gitignore).toContain('.noticer/seen.json')
+
+        // Check that package.json is still updated
+        const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
+        expect(pkg.scripts.postinstall).toBe('npm noticer show')
+      })
     })
   })
 

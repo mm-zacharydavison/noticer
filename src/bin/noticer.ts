@@ -5,7 +5,7 @@ import * as readline from 'node:readline'
 import { program } from 'commander'
 import fs from 'fs-extra'
 import prompts from 'prompts'
-import { getNoticesDir, getRepoRoot, printNotice, run } from '../lib.js'
+import { getNoticesDir, getRepoRoot, printNotice, run, detectPackageManager } from '../lib.js'
 import type { Notice } from '../lib.js'
 
 program
@@ -136,16 +136,20 @@ program
     const pkg = fs.readJsonSync(pkgPath)
     pkg.scripts = pkg.scripts || {}
 
-    // Only add 'noticer show' if it's not already there
-    if (!pkg.scripts.postinstall?.includes('noticer show')) {
+    // Detect package manager and create the command
+    const packageManager = detectPackageManager(repoRoot)
+    const noticerCommand = `${packageManager} noticer show`
+
+    // Only add the command if it's not already there
+    if (!pkg.scripts.postinstall?.includes(noticerCommand)) {
       pkg.scripts.postinstall = pkg.scripts.postinstall
-        ? `${pkg.scripts.postinstall} && noticer show`
-        : 'noticer show'
+        ? `${pkg.scripts.postinstall} && ${noticerCommand}`
+        : noticerCommand
       fs.writeJsonSync(pkgPath, pkg, { spaces: 2 })
       console.log('🪧 Noticer added itself to your "postinstall" script.')
     }
 
-    // Add to .gitignore
+    // Add to .gitignore (always create if doesn't exist)
     const gitignorePath = path.join(repoRoot, '.gitignore')
     const gitignoreContent = fs.existsSync(gitignorePath)
       ? fs.readFileSync(gitignorePath, 'utf8')

@@ -9,7 +9,9 @@
   "bin": {
     "noticer": "./dist/bin/noticer.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "clean": "rm -rf ./dist",
@@ -17,7 +19,8 @@
     "test": "pnpm run build && vitest run",
     "watch": "tsc -b -w --preserveWatchOutput",
     "noticer": "pnpm run build && node dist/bin/noticer.js",
-    "publish-pkg": "pnpm run build && pnpm publish --access public --no-git-checks"
+    "publish-pkg": "pnpm run build && pnpm publish --access public --no-git-checks",
+    "postinstall": "pnpm noticer show"
   },
   "dependencies": {
     "chalk": "^4.1.2",

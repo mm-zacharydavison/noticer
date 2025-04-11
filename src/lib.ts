@@ -55,20 +55,20 @@ export function getSeenNoticesPath(repoRoot: string): string {
 }
 
 /**
- * Finds the root directory of the git repository
+ * Finds the root directory of the repository
  * @returns The path to the repository root
- * @throws Error if not in a git repository
+ * @throws Error if not in a git or jujutsu repository
  */
 export function getRepoRoot(): string {
-  // Start from the current directory and traverse up until we find a .git directory
+  // Start from the current directory and traverse up until we find a .git or .jj directory
   let currentDir = process.cwd()
   while (currentDir !== '/') {
-    if (fs.existsSync(path.join(currentDir, '.git'))) {
+    if (fs.existsSync(path.join(currentDir, '.git')) || fs.existsSync(path.join(currentDir, '.jj'))) {
       return currentDir
     }
     currentDir = path.dirname(currentDir)
   }
-  throw new Error('❌ Not in a git repository')
+  throw new Error('❌ Not in a git or jujutsu repository')
 }
 
 /**
@@ -273,4 +273,21 @@ export function run(number?: number): void {
   } catch (error) {
     // Silently fail if we're not in a git repository
   }
+}
+
+/**
+ * Detects which package manager is being used in the repository
+ * @param repoRoot - The root directory of the repository
+ * @returns The detected package manager command ('npm', 'pnpm', or 'yarn')
+ */
+export function detectPackageManager(repoRoot: string): string {
+  // Check for lock files in order of preference
+  if (fs.existsSync(path.join(repoRoot, 'pnpm-lock.yaml'))) {
+    return 'pnpm'
+  }
+  if (fs.existsSync(path.join(repoRoot, 'yarn.lock'))) {
+    return 'yarn'
+  }
+  // Default to npm if no other lock file is found
+  return 'npm'
 }
