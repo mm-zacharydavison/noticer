@@ -156,7 +156,7 @@ program
       : ''
 
     if (!gitignoreContent.includes('.noticer/seen.json')) {
-      fs.appendFileSync(gitignorePath, '\n# @meetsmore/noticer, record of notices seen by you.')
+      fs.appendFileSync(gitignorePath, '\n# @zdavison/noticer, record of notices seen by you.')
       fs.appendFileSync(gitignorePath, '\n.noticer/seen.json\n')
       console.log('🪧 Noticer added ".noticer/seen.json" to your .gitignore.')
     }
