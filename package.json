@@ -1,0 +1,38 @@
+{
+  "name": "@zdavison/noticer",
+  "version": "1.0.2",
+  "description": "A tool for notifying developers of things they need to know after installing a commit",
+  "repository": "https://github.com/zdavison/noticer",
+  "license": "MIT",
+  "author": "Zachary Davison",
+  "bin": {
+    "noticer": "dist/bin/noticer.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf ./dist",
+    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "test": "pnpm run build && jest",
+    "watch": "tsc -b -w --preserveWatchOutput",
+    "noticer": "pnpm run build && node dist/bin/noticer.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^9.4.1",
+    "fs-extra": "^10.1.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
+    "@types/jest": "^29.2.2",
+    "@types/node": "^20.12.12",
+    "@types/prompts": "^2.4.9",
+    "jest": "^29.3.1",
+    "ts-jest": "^29.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "5.2.2"
+  }
+}
