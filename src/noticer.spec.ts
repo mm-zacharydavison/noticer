@@ -1,15 +1,16 @@
-import { execSync, spawn } from 'child_process'
-import os from 'os'
-import path from 'path'
-import readline from 'readline'
+import { execSync, spawn } from 'node:child_process'
+import os from 'node:os'
+import path from 'node:path'
+import readline from 'node:readline'
 import fs from 'fs-extra'
 import prompts from 'prompts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('noticer CLI', () => {
-  const tmpDir = path.join(os.tmpdir(), 'noticer-test-' + Date.now())
+  const tmpDir = path.join(os.tmpdir(), `noticer-test-${Date.now()}`)
   const noticesDir = path.join(tmpDir, '.noticer', 'notices')
   const seenNoticesPath = path.join(tmpDir, '.noticer', 'seen.json')
-  const cliPath = path.resolve(__dirname, 'bin/noticer.ts')
+  const cliPath = path.resolve(__dirname, '../dist/bin/noticer.js')
 
   beforeEach(() => {
     // Create test directories
@@ -40,7 +41,7 @@ describe('noticer CLI', () => {
 
   describe('init', () => {
     it('WILL install itself into the postinstall script', () => {
-      execSync(`ts-node ${cliPath} init`, {
+      execSync(`node ${cliPath} init`, {
         env: { ...process.env, HOME: tmpDir },
         cwd: tmpDir,
       })
@@ -53,7 +54,7 @@ describe('noticer CLI', () => {
       // Create empty .gitignore
       fs.writeFileSync(path.join(tmpDir, '.gitignore'), '')
 
-      execSync(`ts-node ${cliPath} init`, {
+      execSync(`node ${cliPath} init`, {
         env: { ...process.env, HOME: tmpDir },
         cwd: tmpDir,
       })
@@ -64,28 +65,22 @@ describe('noticer CLI', () => {
 
     it('Multiple runs of `init` are idempotent', () => {
       // First run
-      execSync(`ts-node ${cliPath} init`, {
+      execSync(`node ${cliPath} init`, {
         env: { ...process.env, HOME: tmpDir },
         cwd: tmpDir,
       })
 
       const firstRunPkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
-      const firstRunGitignore = fs.readFileSync(
-        path.join(tmpDir, '.gitignore'),
-        'utf8'
-      )
+      const firstRunGitignore = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf8')
 
       // Second run
-      execSync(`ts-node ${cliPath} init`, {
+      execSync(`node ${cliPath} init`, {
         env: { ...process.env, HOME: tmpDir },
         cwd: tmpDir,
       })
 
       const secondRunPkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
-      const secondRunGitignore = fs.readFileSync(
-        path.join(tmpDir, '.gitignore'),
-        'utf8'
-      )
+      const secondRunGitignore = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf8')
 
       // Verify results are identical
       expect(secondRunPkg).toEqual(firstRunPkg)
@@ -95,22 +90,16 @@ describe('noticer CLI', () => {
 
   describe('create', () => {
     describe('[without a message argument]', () => {
-      // TODO: This is difficult to implement.
-      it.todo(
-        'WILL launch an interactive preview mode that allows writing a message.'
-      )
+      it.todo('WILL launch an interactive preview mode that allows writing a message.')
     })
     describe('[with a message argument]', () => {
       it('WILL create a new notice file', () => {
         // Run the create command and capture output
-        execSync(
-          `ts-node ${cliPath} create --author "Test Author" "Test Content"`,
-          {
-            env: { ...process.env, HOME: tmpDir },
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: tmpDir,
-          }
-        )
+        execSync(`node ${cliPath} create --author "Test Author" "Test Content"`, {
+          env: { ...process.env, HOME: tmpDir },
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: tmpDir,
+        })
 
         // Check if a notice file was created
         const files = fs.readdirSync(noticesDir)
@@ -134,7 +123,7 @@ describe('noticer CLI', () => {
         })
 
         // Create notice without specifying author
-        execSync(`ts-node ${cliPath} create "Test Content"`, {
+        execSync(`node ${cliPath} create "Test Content"`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         })
@@ -156,16 +145,12 @@ describe('noticer CLI', () => {
         date: new Date().toISOString(),
       }
 
-      fs.writeJsonSync(
-        path.join(noticesDir, `${noticeId}.json`),
-        noticeContent,
-        { spaces: 2 }
-      )
+      fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
       // Capture stdout
-      const stdout = execSync(`ts-node ${cliPath} show`, {
+      const stdout = execSync(`node ${cliPath} show`, {
         env: { ...process.env, HOME: tmpDir },
-        cwd: tmpDir, // Ensure command runs in the tmp directory
+        cwd: tmpDir,
       }).toString()
 
       // Check if the notice was displayed
@@ -177,9 +162,9 @@ describe('noticer CLI', () => {
       expect(seenNotices).toHaveProperty(noticeId, true)
 
       // Run again and make sure no notices are shown
-      const secondRun = execSync(`ts-node ${cliPath} show`, {
+      const secondRun = execSync(`node ${cliPath} show`, {
         env: { ...process.env, HOME: tmpDir },
-        cwd: tmpDir, // Ensure command runs in the tmp directory
+        cwd: tmpDir,
       }).toString()
 
       expect(secondRun).not.toContain('Test notice content')
@@ -188,13 +173,13 @@ describe('noticer CLI', () => {
     it('WILL not show anything when there are no notices', () => {
       // Mock process.cwd() to return our temp directory
       const originalCwd = process.cwd
-      process.cwd = jest.fn().mockReturnValue(tmpDir)
+      process.cwd = vi.fn().mockReturnValue(tmpDir)
 
       try {
         // Capture stdout
-        const stdout = execSync(`ts-node ${cliPath} show`, {
+        const stdout = execSync(`node ${cliPath} show`, {
           env: { ...process.env, HOME: tmpDir },
-          cwd: tmpDir, // Ensure command runs in the tmp directory
+          cwd: tmpDir,
         }).toString()
 
         // Check that no notices were displayed
@@ -240,18 +225,16 @@ describe('noticer CLI', () => {
         ]
 
         // Write the notices to files
-        notices.forEach(notice => {
-          fs.writeJsonSync(
-            path.join(noticesDir, `${notice.id}.json`),
-            notice.content,
-            { spaces: 2 }
-          )
-        })
+        for (const notice of notices) {
+          fs.writeJsonSync(path.join(noticesDir, `${notice.id}.json`), notice.content, {
+            spaces: 2,
+          })
+        }
 
         // Capture stdout
-        const stdout = execSync(`ts-node ${cliPath} show`, {
+        const stdout = execSync(`node ${cliPath} show`, {
           env: { ...process.env, HOME: tmpDir },
-          cwd: tmpDir, // Ensure command runs in the tmp directory
+          cwd: tmpDir,
         }).toString()
 
         // Check that only the latest notice was displayed
@@ -273,6 +256,7 @@ describe('noticer CLI', () => {
         // Older notices should all be marked as seen.
         expect(Object.keys(seenNotices)).toHaveLength(3)
       })
+
       it('ALL notices are marked as seen the first time `show` is used.', () => {
         // Create multiple test notices
         const notices = [
@@ -295,16 +279,14 @@ describe('noticer CLI', () => {
         ]
 
         // Write the notices to files
-        notices.forEach(notice => {
-          fs.writeJsonSync(
-            path.join(noticesDir, `${notice.id}.json`),
-            notice.content,
-            { spaces: 2 }
-          )
-        })
+        for (const notice of notices) {
+          fs.writeJsonSync(path.join(noticesDir, `${notice.id}.json`), notice.content, {
+            spaces: 2,
+          })
+        }
 
         // Run show command first time
-        execSync(`ts-node ${cliPath} show`, {
+        execSync(`node ${cliPath} show`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         })
@@ -350,15 +332,14 @@ describe('noticer CLI', () => {
           },
         ]
 
-        notices.forEach(notice => {
-          fs.writeJsonSync(
-            path.join(noticesDir, `${notice.id}.json`),
-            notice.content,
-            { spaces: 2 }
-          )
-        })
+        // Write the notices to files
+        for (const notice of notices) {
+          fs.writeJsonSync(path.join(noticesDir, `${notice.id}.json`), notice.content, {
+            spaces: 2,
+          })
+        }
 
-        const stdout = execSync(`ts-node ${cliPath} show -n 2`, {
+        const stdout = execSync(`node ${cliPath} show -n 2`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()
@@ -374,6 +355,7 @@ describe('noticer CLI', () => {
         expect(seenNotices).toHaveProperty('notice-2', true)
         expect(seenNotices).not.toHaveProperty('notice-1')
       })
+
       it('Even if a notice has been seen, it will be shown when using `-n`', () => {
         // Create test notices
         const notices = [
@@ -396,19 +378,17 @@ describe('noticer CLI', () => {
         ]
 
         // Write notices and mark them as seen
-        notices.forEach(notice => {
-          fs.writeJsonSync(
-            path.join(noticesDir, `${notice.id}.json`),
-            notice.content,
-            { spaces: 2 }
-          )
-        })
+        for (const notice of notices) {
+          fs.writeJsonSync(path.join(noticesDir, `${notice.id}.json`), notice.content, {
+            spaces: 2,
+          })
+        }
         fs.writeJsonSync(seenNoticesPath, {
           'notice-1': true,
           'notice-2': true,
         })
 
-        const stdout = execSync(`ts-node ${cliPath} show -n 2`, {
+        const stdout = execSync(`node ${cliPath} show -n 2`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()

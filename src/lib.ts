@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import chalk from 'chalk'
 import fs from 'fs-extra'
 
@@ -89,10 +89,7 @@ export function getSeenNotices(repoRoot: string): SeenNotices {
  * @param repoRoot - The root directory of the repository
  * @param seenNotices - Object mapping notice IDs to boolean values
  */
-export function saveSeenNotices(
-  repoRoot: string,
-  seenNotices: SeenNotices
-): void {
+export function saveSeenNotices(repoRoot: string, seenNotices: SeenNotices): void {
   const seenNoticesPath = getSeenNoticesPath(repoRoot)
   const noticerDir = getNoticerDir(repoRoot)
 
@@ -127,10 +124,10 @@ export function getNotices(repoRoot: string): Notice[] {
 
   const noticeFiles = fs
     .readdirSync(noticesDir)
-    .filter(file => file.endsWith('.json'))
-    .map(file => path.join(noticesDir, file))
+    .filter((file) => file.endsWith('.json'))
+    .map((file) => path.join(noticesDir, file))
 
-  return noticeFiles.map(file => {
+  return noticeFiles.map((file) => {
     const notice = fs.readJsonSync(file)
     return {
       id: path.basename(file, '.json'),
@@ -148,7 +145,7 @@ export function getNotices(repoRoot: string): Notice[] {
  */
 export function getSortedNotices(repoRoot: string): Notice[] {
   return getNotices(repoRoot).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   )
 }
 
@@ -162,7 +159,7 @@ export function getUnseenNotices(repoRoot: string): Notice[] {
   const seenNotices = getSeenNotices(repoRoot)
 
   // Get all unseen notices.
-  const unseenNotices = notices.filter(notice => !seenNotices[notice.id])
+  const unseenNotices = notices.filter((notice) => !seenNotices[notice.id])
 
   return unseenNotices
 }
@@ -179,9 +176,9 @@ export function printNotice(notice: Notice): void {
     year: 'numeric',
   })
   const width = Math.max(
-    ...contentLines.map(line => line.length),
+    ...contentLines.map((line) => line.length),
     notice.author.length + 10,
-    formattedDate.length + 10
+    formattedDate.length + 10,
   )
 
   // Create border elements
@@ -197,35 +194,23 @@ export function printNotice(notice: Notice): void {
   // Print author line
   const authorLine = ` 📝 ${notice.author}`
   console.log(
-    chalk.cyan('┃') +
-      ' ' +
-      chalk.yellow(authorLine) +
-      ' '.repeat(width + 3 - authorLine.length) +
-      chalk.cyan('┃')
+    `${chalk.cyan('┃')} ${chalk.yellow(authorLine)}${' '.repeat(width + 3 - authorLine.length)}${chalk.cyan('┃')}`,
   )
 
   // Print date line
   const dateLine = `    ${formattedDate}`
   console.log(
-    chalk.cyan('┃') +
-      ' ' +
-      chalk.gray(dateLine) +
-      ' '.repeat(width + 3 - dateLine.length) +
-      chalk.cyan('┃')
+    `${chalk.cyan('┃')} ${chalk.gray(dateLine)}${' '.repeat(width + 3 - dateLine.length)}${chalk.cyan('┃')}`,
   )
 
   console.log(chalk.cyan('┃') + ' '.repeat(width + 4) + chalk.cyan('┃'))
 
   // Print content lines
-  contentLines.forEach(line => {
+  for (const line of contentLines) {
     console.log(
-      chalk.cyan('┃') +
-        ' ' +
-        line +
-        ' '.repeat(width + 3 - line.length) +
-        chalk.cyan('┃')
+      `${chalk.cyan('┃')} ${line}${' '.repeat(width + 3 - line.length)}${chalk.cyan('┃')}`,
     )
-  })
+  }
 
   console.log(chalk.cyan('┃') + ' '.repeat(width + 4) + chalk.cyan('┃'))
   console.log(bottomBorder)
@@ -242,20 +227,23 @@ export function printNotices(notices: Notice[]): void {
   }
 
   console.log('')
-  notices.forEach(notice => {
+  for (const notice of notices) {
     printNotice(notice)
-  })
+  }
   console.log('')
 }
 
 /**
  * Checks if this is the first run, and if it is, marks all notices as seen except the latest.
  */
-export function handleFirstRun(repoRoot: string): any {
+export function handleFirstRun(repoRoot: string): void {
   // If we don't have a `seen.json`, it's our first run, we have no state.
   if (!fs.existsSync(getSeenNoticesPath(repoRoot))) {
     // Mark all notices as read except the latest.
-    getSortedNotices(repoRoot).slice(1).forEach(notice => markNoticeAsSeen(repoRoot, notice.id))
+    const notices = getSortedNotices(repoRoot).slice(1)
+    for (const notice of notices) {
+      markNoticeAsSeen(repoRoot, notice.id)
+    }
   }
 }
 
@@ -272,11 +260,15 @@ export function run(number?: number): void {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)
       printNotices(noticesToShow)
-      noticesToShow.forEach(notice => markNoticeAsSeen(repoRoot, notice.id))
+      for (const notice of noticesToShow) {
+        markNoticeAsSeen(repoRoot, notice.id)
+      }
     } else {
       const unseenNotices = getUnseenNotices(repoRoot)
       printNotices(unseenNotices)
-      unseenNotices.forEach(notice => markNoticeAsSeen(repoRoot, notice.id))
+      for (const notice of unseenNotices) {
+        markNoticeAsSeen(repoRoot, notice.id)
+      }
     }
   } catch (error) {
     // Silently fail if we're not in a git repository

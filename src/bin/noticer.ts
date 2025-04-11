@@ -1,26 +1,24 @@
 #!/usr/bin/env node
-import { execSync } from 'child_process'
-import path from 'path'
-import * as readline from 'readline'
+import { execSync } from 'node:child_process'
+import path from 'node:path'
+import * as readline from 'node:readline'
 import { program } from 'commander'
 import fs from 'fs-extra'
 import prompts from 'prompts'
-import { getNoticesDir, getRepoRoot, printNotice, run } from '../lib'
-import { Notice } from '../lib'
+import { getNoticesDir, getRepoRoot, printNotice, run } from '../lib.js'
+import type { Notice } from '../lib.js'
 
 program
   .name('noticer')
-  .description(
-    'A tool for notifying developers of things they need to know in a repository.'
-  )
+  .description('A tool for notifying developers of things they need to know in a repository.')
   .version('1.0.0')
 
 program
   .command('show')
   .description('Show unseen notices, and mark them as read.')
   .option('-n, --number <number>', 'Show last N notices, even if already seen')
-  .action(options => {
-    run(options.number ? parseInt(options.number, 10) : undefined)
+  .action((options) => {
+    run(options.number ? Number.parseInt(options.number, 10) : undefined)
   })
 
 interface CreateNoticeOptions {
@@ -29,16 +27,8 @@ interface CreateNoticeOptions {
   noticesDir: string
 }
 
-function createNoticeFile({
-  content,
-  author,
-  noticesDir,
-}: CreateNoticeOptions): string {
-  const id = new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\..+/, '')
-    .replace('T', '_')
+function createNoticeFile({ content, author, noticesDir }: CreateNoticeOptions): string {
+  const id = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_')
   const notice = {
     content,
     author,
@@ -52,9 +42,7 @@ function createNoticeFile({
 }
 
 async function createNoticeInteractive(author: string): Promise<string> {
-  console.log(
-    '📝 Enter your notice content below. You will see a live preview as you type.'
-  )
+  console.log('📝 Enter your notice content below. You will see a live preview as you type.')
   console.log('Press Enter to add a new line. Press Enter twice to finish.')
 
   const lines: string[] = []
@@ -66,7 +54,7 @@ async function createNoticeInteractive(author: string): Promise<string> {
       name: 'line',
       message: '>',
       initial: currentLine,
-      onState: state => {
+      onState: (state) => {
         if (state.value) {
           // Clear previous preview
           process.stdout.write('\x1Bc')
@@ -102,10 +90,7 @@ async function createNoticeInteractive(author: string): Promise<string> {
 program
   .command('create [content]')
   .description('Create a new notice')
-  .option(
-    '-a, --author <author>',
-    'The author of the notice (defaults to git user)'
-  )
+  .option('-a, --author <author>', 'The author of the notice (defaults to git user)')
   .action(async (content, options) => {
     try {
       const repoRoot = getRepoRoot()
@@ -121,9 +106,7 @@ program
         try {
           author = execSync('git config user.name', { encoding: 'utf8' }).trim()
         } catch (error) {
-          console.error(
-            '❌ Could not get git user name. Please provide --author option.'
-          )
+          console.error('❌ Could not get git user name. Please provide --author option.')
           process.exit(1)
         }
       }
@@ -169,10 +152,7 @@ program
       : ''
 
     if (!gitignoreContent.includes('.noticer/seen.json')) {
-      fs.appendFileSync(
-        gitignorePath,
-        '\n# @meetsmore/noticer, record of notices seen by you.'
-      )
+      fs.appendFileSync(gitignorePath, '\n# @meetsmore/noticer, record of notices seen by you.')
       fs.appendFileSync(gitignorePath, '\n.noticer/seen.json\n')
       console.log('🪧 Noticer added ".noticer/seen.json" to your .gitignore.')
     }
