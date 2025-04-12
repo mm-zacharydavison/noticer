@@ -1,6 +1,6 @@
 <img width="862" alt="image" src="https://github.com/user-attachments/assets/36dfb39c-10fd-411d-97fd-c0f468cd168c" />
 
-# Noticer
+# 📝 Noticer
 
 `noticer` is a tool for managing small messages that you want developers of a repo to see.
 
