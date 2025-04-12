@@ -1,0 +1,5 @@
+{
+  "content": "`noticer` is a tool for displaying messages like this, in your CLI, in a shared repository.\n \nIt's designed to be really easy to install with one command: `pnpm noticer init`.\n \nOnce a developer has seen a notice, they wont see it again.\n \nYou can use this to inform developers about new features or actions they must take to fix their local environment.",
+  "author": "Zachary Davison",
+  "date": "2025-04-12T05:48:23.414Z"
+}
