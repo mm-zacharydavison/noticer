@@ -44,3 +44,7 @@ However, if you'd like to show notices some other way (e.g. a git hook), just ca
 - Developers only see notices once.
 - Fresh clones will only see the latest notice (not the entire history).
 - Interactive notice creation with live preview.
+
+# Contributors
+
+`Strangler` was developed at [MeetsMore](http://meetsmore.com/) and then open sourced.
