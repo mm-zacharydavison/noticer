@@ -47,4 +47,4 @@ However, if you'd like to show notices some other way (e.g. a git hook), just ca
 
 # Contributors
 
-`Strangler` was developed at [MeetsMore](http://meetsmore.com/) and then open sourced.
+`noticer` was developed at [MeetsMore](http://meetsmore.com/) and then open sourced.
