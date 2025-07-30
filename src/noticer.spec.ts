@@ -6,6 +6,9 @@ import fs from 'fs-extra'
 import prompts from 'prompts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Mock prompts module
+vi.mock('prompts')
+
 describe('noticer CLI', () => {
   const tmpDir = path.join(os.tmpdir(), `noticer-test-${Date.now()}`)
   const noticesDir = path.join(tmpDir, '.noticer', 'notices')
@@ -443,6 +446,101 @@ describe('noticer CLI', () => {
         // Should show both notices even though they're marked as seen
         expect(stdout).toContain('First notice')
         expect(stdout).toContain('Second notice')
+      })
+    })
+
+    describe('command execution', () => {
+      it('WILL detect and display commands prefixed with !>', () => {
+        // Create a test notice with a command
+        const noticeId = 'notice-with-command'
+        const noticeContent = {
+          content: 'Test notice with command:\n!> echo "Hello from test command"',
+          author: 'Test Author',
+          date: new Date().toISOString(),
+        }
+
+        fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+        // Run show command with "no" input (decline command execution)
+        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir,
+        }).toString()
+
+        // Check if the notice was displayed
+        expect(stdout).toContain('Test notice with command')
+        expect(stdout).toContain('!> echo "Hello from test command"')
+        
+        // Should show the command execution prompt
+        expect(stdout).toContain('Execute command')
+      })
+
+      it('WILL execute commands when user agrees', () => {
+        // Create a test notice with a simple command
+        const noticeId = 'notice-with-simple-command'
+        const noticeContent = {
+          content: 'Test notice with command:\n!> echo "Command executed successfully"',
+          author: 'Test Author',
+          date: new Date().toISOString(),
+        }
+
+        fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+        // Run show command with "yes" input (accept command execution)
+        const stdout = execSync(`echo "y" | node ${cliPath} show`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir,
+        }).toString()
+
+        // Should contain the command output
+        expect(stdout).toContain('Command executed successfully')
+        expect(stdout).toContain('Executing: echo "Command executed successfully"')
+      })
+
+      it('WILL not execute commands when user declines', () => {
+        // Create a test notice with a command
+        const noticeId = 'notice-with-command-declined'
+        const noticeContent = {
+          content: 'Test notice with command:\n!> echo "This should not execute"',
+          author: 'Test Author',
+          date: new Date().toISOString(),
+        }
+
+        fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+        // Run show command with "no" input (decline command execution)
+        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir,
+        }).toString()
+
+        // Should show the prompt but not execute the command (no "Executing:" message)
+        expect(stdout).toContain('Execute command')
+        expect(stdout).not.toContain('Executing: echo "This should not execute"')
+      })
+
+      it('WILL ignore lines that do not start with !>', () => {
+        // Create a test notice with text that looks like commands but isn't
+        const noticeId = 'notice-with-fake-commands'
+        const noticeContent = {
+          content: 'This is not a command: > echo "not a command"\nThis is also not: !echo "also not"\nThis IS a command:\n!> echo "real command"',
+          author: 'Test Author',
+          date: new Date().toISOString(),
+        }
+
+        fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+        // Run show command with "no" input
+        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir, 
+        }).toString()
+
+        // Should show prompt for only the real command
+        expect(stdout).toContain('Execute command: echo "real command"')
+        // Should not prompt for the fake commands
+        expect(stdout).not.toContain('Execute command: echo "not a command"')
+        expect(stdout).not.toContain('Execute command: echo "also not"')
       })
     })
   })

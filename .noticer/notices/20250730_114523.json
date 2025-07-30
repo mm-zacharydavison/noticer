@@ -1,0 +1,5 @@
+{
+  "content": "Test notice with command\\!\n\nThis notice includes a command:\n\\!> echo 'Hello from executed command\\!'",
+  "author": "Zachary Davison",
+  "date": "2025-07-30T11:45:23.414Z"
+}

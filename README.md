@@ -44,6 +44,44 @@ However, if you'd like to show notices some other way (e.g. a git hook), just ca
 - Developers only see notices once.
 - Fresh clones will only see the latest notice (not the entire history).
 - Interactive notice creation with live preview.
+- **Command execution**: Include commands in notices that users can execute interactively.
+
+## Command Execution
+
+You can include commands in your notices that users will be prompted to execute when they view the notice. This is useful for automating setup tasks or running necessary commands.
+
+To include a command in a notice, prefix it with `!>`:
+
+```
+pnpm noticer create "We updated the database schema!
+
+Please run the migration:
+!> npm run migrate
+
+And then restart your dev server:
+!> npm run dev"
+```
+
+When users run `noticer show`, they'll see the notice and be prompted to execute each command:
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  📝 Team Lead                       ┃
+┃     July 30, 2025                   ┃
+┃                                     ┃
+┃ We updated the database schema!     ┃
+┃                                     ┃
+┃ Please run the migration:           ┃
+┃ !> npm run migrate                  ┃
+┃                                     ┃
+┃ And then restart your dev server:   ┃
+┃ !> npm run dev                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+? Execute command: npm run migrate? (y/N)
+```
+
+Users can choose to execute or skip each command. Commands are executed in the repository's root directory.
 
 # Contributors
 

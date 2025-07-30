@@ -1,6 +1,8 @@
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 import chalk from 'chalk'
 import fs from 'fs-extra'
+import prompts from 'prompts'
 
 const NOTICER_DIR = '.noticer'
 const NOTICES_DIR = 'notices'
@@ -165,10 +167,61 @@ export function getUnseenNotices(repoRoot: string): Notice[] {
 }
 
 /**
- * Prints a single notice with a formatted border
+ * Extracts commands from notice content that are prefixed with '!>'
+ * @param content - The notice content to parse
+ * @returns Array of commands found in the content
+ */
+function extractCommands(content: string): string[] {
+  const lines = content.split('\n')
+  const commands: string[] = []
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('!>')) {
+      const command = trimmed.slice(2).trim()
+      if (command) {
+        commands.push(command)
+      }
+    }
+  }
+  
+  return commands
+}
+
+/**
+ * Prompts user to execute a command and executes it if they agree
+ * @param command - The command to potentially execute
+ */
+async function promptAndExecuteCommand(command: string): Promise<void> {
+  try {
+    const response = await prompts({
+      type: 'confirm',
+      name: 'execute',
+      message: `Execute command: ${chalk.yellow(command)}?`,
+      initial: false
+    })
+    
+    if (response.execute) {
+      console.log(chalk.blue(`Executing: ${command}`))
+      try {
+        const output = execSync(command, { encoding: 'utf8', stdio: 'pipe' })
+        if (output.trim()) {
+          console.log(output)
+        }
+      } catch (error) {
+        console.error(chalk.red(`Command failed: ${error instanceof Error ? error.message : String(error)}`))
+      }
+    }
+  } catch (error) {
+    // Handle prompts cancellation gracefully
+  }
+}
+
+/**
+ * Prints a single notice with a formatted border (synchronous version for previews)
  * @param notice - The notice to print
  */
-export function printNotice(notice: Notice): void {
+export function printNoticeSync(notice: Notice): void {
   const contentLines = notice.content.split('\n')
   const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -218,17 +271,76 @@ export function printNotice(notice: Notice): void {
 }
 
 /**
+ * Prints a single notice with a formatted border
+ * @param notice - The notice to print
+ */
+export async function printNotice(notice: Notice): Promise<void> {
+  const contentLines = notice.content.split('\n')
+  const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  const width = Math.max(
+    ...contentLines.map((line) => line.length),
+    notice.author.length + 10,
+    formattedDate.length + 10,
+  )
+
+  // Create border elements
+  const horizontalBorder = chalk.cyan('━'.repeat(width + 4))
+  const topBorder = chalk.cyan('┏') + horizontalBorder + chalk.cyan('┓')
+  const bottomBorder = chalk.cyan('┗') + horizontalBorder + chalk.cyan('┛')
+
+  // Print the notice with border
+  console.log('')
+  console.log(topBorder)
+  console.log(chalk.cyan('┃') + ' '.repeat(width + 4) + chalk.cyan('┃'))
+
+  // Print author line
+  const authorLine = ` 📝 ${notice.author}`
+  console.log(
+    `${chalk.cyan('┃')} ${chalk.yellow(authorLine)}${' '.repeat(width + 3 - authorLine.length)}${chalk.cyan('┃')}`,
+  )
+
+  // Print date line
+  const dateLine = `    ${formattedDate}`
+  console.log(
+    `${chalk.cyan('┃')} ${chalk.gray(dateLine)}${' '.repeat(width + 3 - dateLine.length)}${chalk.cyan('┃')}`,
+  )
+
+  console.log(chalk.cyan('┃') + ' '.repeat(width + 4) + chalk.cyan('┃'))
+
+  // Print content lines
+  for (const line of contentLines) {
+    console.log(
+      `${chalk.cyan('┃')} ${line}${' '.repeat(width + 3 - line.length)}${chalk.cyan('┃')}`,
+    )
+  }
+
+  console.log(chalk.cyan('┃') + ' '.repeat(width + 4) + chalk.cyan('┃'))
+  console.log(bottomBorder)
+  console.log('')
+
+  // Check for commands in the notice content
+  const commands = extractCommands(notice.content)
+  for (const command of commands) {
+    await promptAndExecuteCommand(command)
+  }
+}
+
+/**
  * Prints multiple notices
  * @param notices - Array of notices to print
  */
-export function printNotices(notices: Notice[]): void {
+export async function printNotices(notices: Notice[]): Promise<void> {
   if (notices.length === 0) {
     return
   }
 
   console.log('')
   for (const notice of notices) {
-    printNotice(notice)
+    await printNotice(notice)
   }
   console.log('')
 }
@@ -252,20 +364,20 @@ export function handleFirstRun(repoRoot: string): void {
  * Displays unseen notices and marks them as seen
  * @param number - Optional number of most recent notices to show
  */
-export function run(number?: number): void {
+export async function run(number?: number): Promise<void> {
   try {
     const repoRoot = getRepoRoot()
     handleFirstRun(repoRoot)
     if (number) {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)
-      printNotices(noticesToShow)
+      await printNotices(noticesToShow)
       for (const notice of noticesToShow) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
     } else {
       const unseenNotices = getUnseenNotices(repoRoot)
-      printNotices(unseenNotices)
+      await printNotices(unseenNotices)
       for (const notice of unseenNotices) {
         markNoticeAsSeen(repoRoot, notice.id)
       }

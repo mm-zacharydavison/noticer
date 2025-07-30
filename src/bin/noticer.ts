@@ -5,7 +5,7 @@ import * as readline from 'node:readline'
 import { program } from 'commander'
 import fs from 'fs-extra'
 import prompts from 'prompts'
-import { getNoticesDir, getRepoRoot, printNotice, run, detectPackageManager } from '../lib.js'
+import { getNoticesDir, getRepoRoot, printNoticeSync, run, detectPackageManager } from '../lib.js'
 import type { Notice } from '../lib.js'
 
 program
@@ -17,8 +17,8 @@ program
   .command('show')
   .description('Show unseen notices, and mark them as read.')
   .option('-n, --number <number>', 'Show last N notices, even if already seen')
-  .action((options) => {
-    run(options.number ? Number.parseInt(options.number, 10) : undefined)
+  .action(async (options) => {
+    await run(options.number ? Number.parseInt(options.number, 10) : undefined)
   })
 
 interface CreateNoticeOptions {
@@ -65,7 +65,7 @@ async function createNoticeInteractive(author: string): Promise<string> {
             author,
             date: new Date().toISOString(),
           }
-          printNotice(previewNotice)
+          printNoticeSync(previewNotice)
         }
       },
     })
