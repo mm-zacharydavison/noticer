@@ -191,8 +191,9 @@ function extractCommands(content: string): string[] {
 /**
  * Prompts user to execute a command and executes it if they agree
  * @param command - The command to potentially execute
+ * @param repoRoot - The repository root directory to execute commands from
  */
-async function promptAndExecuteCommand(command: string): Promise<void> {
+async function promptAndExecuteCommand(command: string, repoRoot: string): Promise<void> {
   try {
     const response = await prompts({
       type: 'confirm',
@@ -204,10 +205,7 @@ async function promptAndExecuteCommand(command: string): Promise<void> {
     if (response.execute) {
       console.log(chalk.blue(`Executing: ${command}`))
       try {
-        const output = execSync(command, { encoding: 'utf8', stdio: 'pipe' })
-        if (output.trim()) {
-          console.log(output)
-        }
+        execSync(command, { stdio: 'inherit', cwd: repoRoot })
       } catch (error) {
         console.error(chalk.red(`Command failed: ${error instanceof Error ? error.message : String(error)}`))
       }
@@ -273,8 +271,9 @@ export function printNoticeSync(notice: Notice): void {
 /**
  * Prints a single notice with a formatted border
  * @param notice - The notice to print
+ * @param repoRoot - The repository root directory to execute commands from
  */
-export async function printNotice(notice: Notice): Promise<void> {
+export async function printNotice(notice: Notice, repoRoot?: string): Promise<void> {
   const contentLines = notice.content.split('\n')
   const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -324,23 +323,25 @@ export async function printNotice(notice: Notice): Promise<void> {
 
   // Check for commands in the notice content
   const commands = extractCommands(notice.content)
+  const commandRepoRoot = repoRoot || getRepoRoot()
   for (const command of commands) {
-    await promptAndExecuteCommand(command)
+    await promptAndExecuteCommand(command, commandRepoRoot)
   }
 }
 
 /**
  * Prints multiple notices
  * @param notices - Array of notices to print
+ * @param repoRoot - The repository root directory to execute commands from
  */
-export async function printNotices(notices: Notice[]): Promise<void> {
+export async function printNotices(notices: Notice[], repoRoot?: string): Promise<void> {
   if (notices.length === 0) {
     return
   }
 
   console.log('')
   for (const notice of notices) {
-    await printNotice(notice)
+    await printNotice(notice, repoRoot)
   }
   console.log('')
 }
@@ -371,13 +372,13 @@ export async function run(number?: number): Promise<void> {
     if (number) {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)
-      await printNotices(noticesToShow)
+      await printNotices(noticesToShow, repoRoot)
       for (const notice of noticesToShow) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
     } else {
       const unseenNotices = getUnseenNotices(repoRoot)
-      await printNotices(unseenNotices)
+      await printNotices(unseenNotices, repoRoot)
       for (const notice of unseenNotices) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
