@@ -1,3 +1,4 @@
+import nodeFs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
 import chalk from 'chalk'
@@ -189,11 +190,69 @@ function extractCommands(content: string): string[] {
 }
 
 /**
+ * Attempts to get a TTY stream for interactive prompts.
+ * In git hooks, stdin is often not a TTY, but we can reopen /dev/tty.
+ * @returns A readable stream connected to the terminal, or null if unavailable
+ */
+function getTTYStream(): nodeFs.ReadStream | null {
+  if (process.stdin.isTTY) {
+    return null // stdin is already a TTY, no need to replace
+  }
+
+  try {
+    // /dev/tty is a special file that refers to the controlling terminal
+    const ttyFd = nodeFs.openSync('/dev/tty', 'r')
+    return nodeFs.createReadStream('', { fd: ttyFd })
+  } catch {
+    // /dev/tty not available (Windows, or headless CI)
+    return null
+  }
+}
+
+/**
+ * Executes a command
+ * @param command - The command to execute
+ * @param repoRoot - The repository root directory to execute commands from
+ */
+function executeCommand(command: string, repoRoot: string): void {
+  console.log(chalk.blue(`Executing: ${command}`))
+  try {
+    execSync(command, { stdio: 'inherit', cwd: repoRoot })
+  } catch (error) {
+    console.error(chalk.red(`Command failed: ${error instanceof Error ? error.message : String(error)}`))
+  }
+}
+
+/**
  * Prompts user to execute a command and executes it if they agree
  * @param command - The command to potentially execute
  * @param repoRoot - The repository root directory to execute commands from
+ * @param autoExecute - Whether to auto-execute without prompting
  */
-async function promptAndExecuteCommand(command: string, repoRoot: string): Promise<void> {
+async function promptAndExecuteCommand(command: string, repoRoot: string, autoExecute = false): Promise<void> {
+  // Auto-execute mode: run without prompting
+  if (autoExecute) {
+    executeCommand(command, repoRoot)
+    return
+  }
+
+  // Handle non-TTY environments (like git hooks)
+  const ttyStream = getTTYStream()
+  if (!process.stdin.isTTY && !ttyStream) {
+    // No terminal available, skip command prompts
+    return
+  }
+
+  // If we got a TTY stream, temporarily replace stdin
+  const originalStdin = process.stdin
+  if (ttyStream) {
+    Object.defineProperty(process, 'stdin', {
+      value: ttyStream,
+      writable: true,
+      configurable: true
+    })
+  }
+
   try {
     const response = await prompts({
       type: 'confirm',
@@ -201,17 +260,22 @@ async function promptAndExecuteCommand(command: string, repoRoot: string): Promi
       message: `Execute command: ${chalk.yellow(command)}?`,
       initial: false
     })
-    
+
     if (response.execute) {
-      console.log(chalk.blue(`Executing: ${command}`))
-      try {
-        execSync(command, { stdio: 'inherit', cwd: repoRoot })
-      } catch (error) {
-        console.error(chalk.red(`Command failed: ${error instanceof Error ? error.message : String(error)}`))
-      }
+      executeCommand(command, repoRoot)
     }
   } catch (error) {
     // Handle prompts cancellation gracefully
+  } finally {
+    // Restore original stdin
+    if (ttyStream) {
+      Object.defineProperty(process, 'stdin', {
+        value: originalStdin,
+        writable: true,
+        configurable: true
+      })
+      ttyStream.close()
+    }
   }
 }
 
@@ -272,8 +336,9 @@ export function printNoticeSync(notice: Notice): void {
  * Prints a single notice with a formatted border
  * @param notice - The notice to print
  * @param repoRoot - The repository root directory to execute commands from
+ * @param autoExecute - Whether to auto-execute commands without prompting
  */
-export async function printNotice(notice: Notice, repoRoot?: string): Promise<void> {
+export async function printNotice(notice: Notice, repoRoot?: string, autoExecute = false): Promise<void> {
   const contentLines = notice.content.split('\n')
   const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -325,7 +390,7 @@ export async function printNotice(notice: Notice, repoRoot?: string): Promise<vo
   const commands = extractCommands(notice.content)
   const commandRepoRoot = repoRoot || getRepoRoot()
   for (const command of commands) {
-    await promptAndExecuteCommand(command, commandRepoRoot)
+    await promptAndExecuteCommand(command, commandRepoRoot, autoExecute)
   }
 }
 
@@ -333,15 +398,16 @@ export async function printNotice(notice: Notice, repoRoot?: string): Promise<vo
  * Prints multiple notices
  * @param notices - Array of notices to print
  * @param repoRoot - The repository root directory to execute commands from
+ * @param autoExecute - Whether to auto-execute commands without prompting
  */
-export async function printNotices(notices: Notice[], repoRoot?: string): Promise<void> {
+export async function printNotices(notices: Notice[], repoRoot?: string, autoExecute = false): Promise<void> {
   if (notices.length === 0) {
     return
   }
 
   console.log('')
   for (const notice of notices) {
-    await printNotice(notice, repoRoot)
+    await printNotice(notice, repoRoot, autoExecute)
   }
   console.log('')
 }
@@ -361,24 +427,35 @@ export function handleFirstRun(repoRoot: string): void {
 }
 
 /**
+ * Options for the run function
+ */
+export interface RunOptions {
+  /** Optional number of most recent notices to show */
+  number?: number
+  /** Whether to auto-execute commands without prompting */
+  autoExecute?: boolean
+}
+
+/**
  * Main function to run the noticer
  * Displays unseen notices and marks them as seen
- * @param number - Optional number of most recent notices to show
+ * @param options - Run options (number, autoExecute)
  */
-export async function run(number?: number): Promise<void> {
+export async function run(options: RunOptions = {}): Promise<void> {
+  const { number, autoExecute = false } = options
   try {
     const repoRoot = getRepoRoot()
     handleFirstRun(repoRoot)
     if (number) {
       const sortedNotices = getSortedNotices(repoRoot)
       const noticesToShow = sortedNotices.slice(0, number)
-      await printNotices(noticesToShow, repoRoot)
+      await printNotices(noticesToShow, repoRoot, autoExecute)
       for (const notice of noticesToShow) {
         markNoticeAsSeen(repoRoot, notice.id)
       }
     } else {
       const unseenNotices = getUnseenNotices(repoRoot)
-      await printNotices(unseenNotices, repoRoot)
+      await printNotices(unseenNotices, repoRoot, autoExecute)
       for (const notice of unseenNotices) {
         markNoticeAsSeen(repoRoot, notice.id)
       }

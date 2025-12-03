@@ -461,21 +461,19 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "no" input (decline command execution)
-        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+        // Run show command - command detection is verified by the content being displayed
+        // and --auto-execute working (tested separately)
+        const stdout = execSync(`node ${cliPath} show </dev/null`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()
 
-        // Check if the notice was displayed
+        // Check if the notice was displayed with the command syntax
         expect(stdout).toContain('Test notice with command')
         expect(stdout).toContain('!> echo "Hello from test command"')
-        
-        // Should show the command execution prompt
-        expect(stdout).toContain('Execute command')
       })
 
-      it('WILL execute commands when user agrees', () => {
+      it('WILL execute commands when using --auto-execute', () => {
         // Create a test notice with a simple command
         const noticeId = 'notice-with-simple-command'
         const noticeContent = {
@@ -486,17 +484,17 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "yes" input (accept command execution)
-        const stdout = execSync(`echo "y" | node ${cliPath} show`, {
+        // Run show command with --auto-execute
+        const stdout = execSync(`node ${cliPath} show --auto-execute`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()
 
-        // Should show the execution message (command output now goes to terminal via stdio: inherit)
+        // Should show the execution message
         expect(stdout).toContain('Executing: echo "Command executed successfully"')
       })
 
-      it('WILL not execute commands when user declines', () => {
+      it('WILL not execute commands when no TTY is available and --auto-execute is not passed', () => {
         // Create a test notice with a command
         const noticeId = 'notice-with-command-declined'
         const noticeContent = {
@@ -507,14 +505,14 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "no" input (decline command execution)
-        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+        // Run show command with stdin closed (simulating non-TTY)
+        const stdout = execSync(`node ${cliPath} show </dev/null`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()
 
-        // Should show the prompt but not execute the command (no "Executing:" message)
-        expect(stdout).toContain('Execute command')
+        // Should display the notice but not execute the command
+        expect(stdout).toContain('Test notice with command')
         expect(stdout).not.toContain('Executing: echo "This should not execute"')
       })
 
@@ -529,17 +527,17 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "no" input
-        const stdout = execSync(`echo "n" | node ${cliPath} show`, {
+        // Run show command with --auto-execute to verify only the real command runs
+        const stdout = execSync(`node ${cliPath} show --auto-execute`, {
           env: { ...process.env, HOME: tmpDir },
-          cwd: tmpDir, 
+          cwd: tmpDir,
         }).toString()
 
-        // Should show prompt for only the real command
-        expect(stdout).toContain('Execute command: echo "real command"')
-        // Should not prompt for the fake commands
-        expect(stdout).not.toContain('Execute command: echo "not a command"')
-        expect(stdout).not.toContain('Execute command: echo "also not"')
+        // Should execute only the real command
+        expect(stdout).toContain('Executing: echo "real command"')
+        // Should not execute the fake commands
+        expect(stdout).not.toContain('Executing: echo "not a command"')
+        expect(stdout).not.toContain('Executing: echo "also not"')
       })
 
       it('WILL execute local scripts with relative paths from repo root', () => {
@@ -559,16 +557,16 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "yes" input (accept command execution)
-        const stdout = execSync(`echo "y" | node ${cliPath} show`, {
+        // Run show command with --auto-execute
+        const stdout = execSync(`node ${cliPath} show --auto-execute`, {
           env: { ...process.env, HOME: tmpDir },
           cwd: tmpDir,
         }).toString()
 
-        // Should show the execution attempt (script output now goes directly to terminal)
+        // Should show the execution attempt
         expect(stdout).toContain('Executing: ./scripts/test-script.sh')
-        
-        // Verify the script file exists and is executable (indirect verification)
+
+        // Verify the script file exists and is executable
         expect(fs.existsSync(scriptPath)).toBe(true)
         const stats = fs.statSync(scriptPath)
         expect(stats.mode & 0o111).not.toBe(0) // Check execute permissions
@@ -585,71 +583,156 @@ describe('noticer CLI', () => {
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // Run show command with "yes" input (accept command execution)
-        // Using try-catch to handle the execSync error and capture both stdout and stderr
+        // Run show command with --auto-execute
         let output = ''
         try {
-          output = execSync(`echo "y" | node ${cliPath} show`, {
+          output = execSync(`node ${cliPath} show --auto-execute`, {
             env: { ...process.env, HOME: tmpDir },
             cwd: tmpDir,
             stdio: 'pipe'
           }).toString()
-        } catch (error: any) {
-          // execSync throws on non-zero exit codes, but we still get the output
-          output = error.stdout ? error.stdout.toString() : ''
+        } catch (error: unknown) {
+          const execError = error as { stdout?: Buffer }
+          output = execError.stdout ? execError.stdout.toString() : ''
         }
 
         // Should show the execution attempt - the script execution itself may fail
         // but the noticer command should complete successfully
         expect(output).toContain('Executing: ./scripts/missing-script.sh')
-        // The command should show as attempting to execute, even if it fails
       })
 
-      it('WILL support interactive scripts that require user input', () => {
-        // Create an interactive test script that prompts for input
+      it('WILL execute scripts with --auto-execute', () => {
+        // Create a simple test script
         const scriptsDir = path.join(tmpDir, 'scripts')
         fs.ensureDirSync(scriptsDir)
-        const scriptPath = path.join(scriptsDir, 'interactive-script.sh')
+        const scriptPath = path.join(scriptsDir, 'simple-script.sh')
         const scriptContent = `#!/bin/bash
-echo "What is your name?"
-read name
-echo "Hello, $name! Interactive script completed."
+echo "Script executed successfully"
 `
         fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 })
 
-        // Create a test notice with an interactive script command
-        const noticeId = 'notice-with-interactive-script'
+        // Create a test notice with a script command
+        const noticeId = 'notice-with-script'
         const noticeContent = {
-          content: 'Run interactive setup:\n!> ./scripts/interactive-script.sh',
+          content: 'Run setup:\n!> ./scripts/simple-script.sh',
           author: 'Test Author',
           date: new Date().toISOString(),
         }
 
         fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
 
-        // For this test, we'll simulate the expected behavior
-        // Since testing interactive scripts in CI is complex, we'll test that:
-        // 1. The command is detected and prompted for execution
-        // 2. When accepted, it attempts to execute the script
-        
-        // Run show command with "yes" to execute, then "TestUser" as input to the script
-        const input = 'y\nTestUser\n'
-        let output = ''
-        try {
-          output = execSync(`echo "${input}" | node ${cliPath} show`, {
-            env: { ...process.env, HOME: tmpDir },
-            cwd: tmpDir,
-            stdio: 'pipe'
-          }).toString()
-        } catch (error: any) {
-          output = error.stdout ? error.stdout.toString() : ''
-        }
+        // Run show command with --auto-execute
+        const stdout = execSync(`node ${cliPath} show --auto-execute`, {
+          env: { ...process.env, HOME: tmpDir },
+          cwd: tmpDir,
+        }).toString()
 
         // Should show the execution attempt
-        expect(output).toContain('Executing: ./scripts/interactive-script.sh')
-        
-        // Note: The current implementation may not fully support interactive scripts
-        // due to stdio: 'pipe' in execSync. This test documents the expected behavior.
+        expect(stdout).toContain('Executing: ./scripts/simple-script.sh')
+      })
+
+      describe('--auto-execute', () => {
+        it('WILL execute commands without prompting when --auto-execute is passed', () => {
+          // Create a test notice with a command
+          const noticeId = 'notice-auto-execute'
+          const noticeContent = {
+            content: 'Auto-execute test:\n!> echo "Auto executed"',
+            author: 'Test Author',
+            date: new Date().toISOString(),
+          }
+
+          fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+          // Run show command with --auto-execute (no user input needed)
+          const stdout = execSync(`node ${cliPath} show --auto-execute`, {
+            env: { ...process.env, HOME: tmpDir },
+            cwd: tmpDir,
+          }).toString()
+
+          // Should execute without prompting
+          expect(stdout).toContain('Executing: echo "Auto executed"')
+          // Should NOT show the prompt
+          expect(stdout).not.toContain('Execute command:')
+        })
+
+        it('WILL execute multiple commands in sequence with --auto-execute', () => {
+          // Create a test notice with multiple commands
+          const noticeId = 'notice-multi-auto-execute'
+          const noticeContent = {
+            content: 'Multi-command test:\n!> echo "First command"\n!> echo "Second command"',
+            author: 'Test Author',
+            date: new Date().toISOString(),
+          }
+
+          fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+          // Run show command with --auto-execute
+          const stdout = execSync(`node ${cliPath} show --auto-execute`, {
+            env: { ...process.env, HOME: tmpDir },
+            cwd: tmpDir,
+          }).toString()
+
+          // Both commands should be executed
+          expect(stdout).toContain('Executing: echo "First command"')
+          expect(stdout).toContain('Executing: echo "Second command"')
+        })
+
+        it('WILL continue executing remaining commands even if one fails with --auto-execute', () => {
+          // Create a test notice with a failing command followed by a working one
+          const noticeId = 'notice-fail-continue'
+          const noticeContent = {
+            content: 'Fail and continue:\n!> exit 1\n!> echo "After failure"',
+            author: 'Test Author',
+            date: new Date().toISOString(),
+          }
+
+          fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+          // Run show command with --auto-execute
+          let output = ''
+          try {
+            output = execSync(`node ${cliPath} show --auto-execute`, {
+              env: { ...process.env, HOME: tmpDir },
+              cwd: tmpDir,
+              stdio: 'pipe'
+            }).toString()
+          } catch (error: unknown) {
+            const execError = error as { stdout?: Buffer }
+            output = execError.stdout ? execError.stdout.toString() : ''
+          }
+
+          // Should attempt to execute both commands
+          expect(output).toContain('Executing: exit 1')
+          expect(output).toContain('Executing: echo "After failure"')
+        })
+      })
+
+      describe('TTY fallback', () => {
+        it('WILL skip command prompts when stdin is not a TTY and /dev/tty is unavailable', () => {
+          // Create a test notice with a command
+          const noticeId = 'notice-no-tty'
+          const noticeContent = {
+            content: 'No TTY test:\n!> echo "Should be skipped"',
+            author: 'Test Author',
+            date: new Date().toISOString(),
+          }
+
+          fs.writeJsonSync(path.join(noticesDir, `${noticeId}.json`), noticeContent, { spaces: 2 })
+
+          // Run show command with stdin closed (simulating non-TTY without /dev/tty)
+          // Using </dev/null to close stdin
+          const stdout = execSync(`node ${cliPath} show </dev/null`, {
+            env: { ...process.env, HOME: tmpDir },
+            cwd: tmpDir,
+          }).toString()
+
+          // Notice should be displayed but command should NOT be executed or prompted
+          expect(stdout).toContain('No TTY test')
+          expect(stdout).not.toContain('Executing:')
+          // The prompt behavior depends on /dev/tty availability
+        })
+
+        it.skip('WILL re-open /dev/tty if stdin is not a TTY.') // hard to test without actual shell
       })
     })
   })

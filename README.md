@@ -83,6 +83,16 @@ When users run `noticer show`, they'll see the notice and be prompted to execute
 
 Users can choose to execute or skip each command. Commands are executed in the repository's root directory.
 
+### `/dev/tty` fallback
+
+`noticer` attempts to re-open `/dev/tty` when stdin is not a TTY.
+
+If you run `noticer` during `git` hooks, this will be the case.
+
+This is done in order to allow interactivity (e.g. when using `!>` command execution).
+
+However this may not work in some environments, in that case, you can use `--auto-execute` to automatically prompt `yes` to `!>` command executions.
+
 # Contributors
 
 `noticer` was developed at [MeetsMore](http://meetsmore.com/) and then open sourced.

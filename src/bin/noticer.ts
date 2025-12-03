@@ -17,8 +17,12 @@ program
   .command('show')
   .description('Show unseen notices, and mark them as read.')
   .option('-n, --number <number>', 'Show last N notices, even if already seen')
+  .option('--auto-execute', 'Automatically execute all commands without prompting')
   .action(async (options) => {
-    await run(options.number ? Number.parseInt(options.number, 10) : undefined)
+    await run({
+      number: options.number ? Number.parseInt(options.number, 10) : undefined,
+      autoExecute: options.autoExecute ?? false
+    })
   })
 
 interface CreateNoticeOptions {
