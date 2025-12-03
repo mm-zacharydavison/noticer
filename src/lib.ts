@@ -228,17 +228,23 @@ function executeCommand(command: string, repoRoot: string): void {
  * @param command - The command to potentially execute
  * @param repoRoot - The repository root directory to execute commands from
  * @param autoExecute - Whether to auto-execute without prompting
+ * @param inputStream - Optional input stream to use for prompts
  */
-async function promptAndExecuteCommand(command: string, repoRoot: string, autoExecute = false): Promise<void> {
+async function promptAndExecuteCommand(
+  command: string,
+  repoRoot: string,
+  autoExecute = false,
+  inputStream?: nodeFs.ReadStream | NodeJS.ReadStream
+): Promise<void> {
   // Auto-execute mode: run without prompting
   if (autoExecute) {
     executeCommand(command, repoRoot)
     return
   }
 
-  // Handle non-TTY environments (like git hooks)
-  const ttyStream = getTTYStream()
-  if (!process.stdin.isTTY && !ttyStream) {
+  // Use provided stream, or fall back to stdin if it's a TTY
+  const stdin = inputStream ?? (process.stdin.isTTY ? process.stdin : null)
+  if (!stdin) {
     // No terminal available, skip command prompts
     return
   }
@@ -249,7 +255,7 @@ async function promptAndExecuteCommand(command: string, repoRoot: string, autoEx
       name: 'execute',
       message: `Execute command: ${chalk.yellow(command)}?`,
       initial: false,
-      stdin: ttyStream ?? process.stdin,
+      stdin,
       stdout: process.stdout
     })
 
@@ -258,10 +264,6 @@ async function promptAndExecuteCommand(command: string, repoRoot: string, autoEx
     }
   } catch (error) {
     // Handle prompts cancellation gracefully
-  } finally {
-    if (ttyStream) {
-      ttyStream.close()
-    }
   }
 }
 
@@ -323,8 +325,14 @@ export function printNoticeSync(notice: Notice): void {
  * @param notice - The notice to print
  * @param repoRoot - The repository root directory to execute commands from
  * @param autoExecute - Whether to auto-execute commands without prompting
+ * @param inputStream - Optional input stream to use for prompts
  */
-export async function printNotice(notice: Notice, repoRoot?: string, autoExecute = false): Promise<void> {
+export async function printNotice(
+  notice: Notice,
+  repoRoot?: string,
+  autoExecute = false,
+  inputStream?: nodeFs.ReadStream | NodeJS.ReadStream
+): Promise<void> {
   const contentLines = notice.content.split('\n')
   const formattedDate = new Date(notice.date).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -376,7 +384,7 @@ export async function printNotice(notice: Notice, repoRoot?: string, autoExecute
   const commands = extractCommands(notice.content)
   const commandRepoRoot = repoRoot || getRepoRoot()
   for (const command of commands) {
-    await promptAndExecuteCommand(command, commandRepoRoot, autoExecute)
+    await promptAndExecuteCommand(command, commandRepoRoot, autoExecute, inputStream)
   }
 }
 
@@ -391,11 +399,21 @@ export async function printNotices(notices: Notice[], repoRoot?: string, autoExe
     return
   }
 
-  console.log('')
-  for (const notice of notices) {
-    await printNotice(notice, repoRoot, autoExecute)
+  // Create TTY stream once for all prompts (for git hook environments)
+  const ttyStream = !autoExecute ? getTTYStream() : null
+  const inputStream = ttyStream ?? (process.stdin.isTTY ? process.stdin : undefined)
+
+  try {
+    console.log('')
+    for (const notice of notices) {
+      await printNotice(notice, repoRoot, autoExecute, inputStream)
+    }
+    console.log('')
+  } finally {
+    if (ttyStream) {
+      ttyStream.close()
+    }
   }
-  console.log('')
 }
 
 /**
