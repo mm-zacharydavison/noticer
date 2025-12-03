@@ -21,11 +21,11 @@ It's designed to be really easy to use and setup in your repository.
 Since you're already using `node`, there's no point requiring all your developers to install a bundled copy of it.
 
 ```bash
-npm install @zdavison/noticer
+npm install -D @zdavison/noticer
 # or
-pnpm add @zdavison/noticer
+pnpm add -D @zdavison/noticer
 # or
-bun add @zdavison/noticer
+bun add -D @zdavison/noticer
 ```
 
 ### Other projects (standalone binary)
