@@ -3,11 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import fs from 'fs-extra'
-import prompts from 'prompts'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-// Mock prompts module
-vi.mock('prompts')
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
 describe('noticer CLI', () => {
   const tmpDir = path.join(os.tmpdir(), `noticer-test-${Date.now()}`)
@@ -77,6 +73,19 @@ describe('noticer CLI', () => {
 
       const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
       expect(pkg.scripts.postinstall).toBe('yarn noticer show')
+    })
+
+    it('WILL use bun when bun.lockb exists', () => {
+      // Create bun lock file
+      fs.writeFileSync(path.join(tmpDir, 'bun.lockb'), '')
+
+      execSync(`node ${cliPath} init`, {
+        env: { ...process.env, HOME: tmpDir },
+        cwd: tmpDir,
+      })
+
+      const pkg = fs.readJsonSync(path.join(tmpDir, 'package.json'))
+      expect(pkg.scripts.postinstall).toBe('bun noticer show')
     })
 
     it('WILL add `.noticer/seen.json` to .gitignore', () => {
@@ -221,23 +230,14 @@ describe('noticer CLI', () => {
     })
 
     it('WILL not show anything when there are no notices', () => {
-      // Mock process.cwd() to return our temp directory
-      const originalCwd = process.cwd
-      process.cwd = vi.fn().mockReturnValue(tmpDir)
+      // Capture stdout
+      const stdout = execSync(`node ${cliPath} show`, {
+        env: { ...process.env, HOME: tmpDir },
+        cwd: tmpDir,
+      }).toString()
 
-      try {
-        // Capture stdout
-        const stdout = execSync(`node ${cliPath} show`, {
-          env: { ...process.env, HOME: tmpDir },
-          cwd: tmpDir,
-        }).toString()
-
-        // Check that no notices were displayed
-        expect(stdout.trim()).toBe('')
-      } finally {
-        // Restore original cwd
-        process.cwd = originalCwd
-      }
+      // Check that no notices were displayed
+      expect(stdout.trim()).toBe('')
     })
 
     describe('On a fresh clone', () => {

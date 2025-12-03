@@ -16,21 +16,33 @@ It's designed to be really easy to use and setup in your repository.
 
 ## Installation
 
+### Node.js projects
+
+Since you're already using `node`, there's no point requiring all your developers to install a bundled copy of it.
+
 ```bash
 npm install @zdavison/noticer
 # or
 pnpm add @zdavison/noticer
 # or
-yarn add @zdavison/noticer
+bun add @zdavison/noticer
 ```
+
+### Other projects (standalone binary)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zdavison/noticer/main/install.sh | sh
+```
+
+This downloads a standalone executable - no Node.js required.
 
 ## Quick Start
 
-We'll assume you're using `pnpm`, but this works with any package manager.
+For Node.js projects (using your package manager):
 
-```
-pnpm noticer init
-pnpm noticer create
+```bash
+npx noticer init
+npx noticer create
 ```
 
 ## Showing notices

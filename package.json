@@ -14,13 +14,14 @@
   ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
+    "build:bundle": "bun build src/bin/noticer.ts --compile --outfile dist/noticer",
     "clean": "rm -rf ./dist",
     "lint": "biome check --write src/",
-    "test": "pnpm run build && vitest run",
+    "test": "bun run build && bun test",
     "watch": "tsc -b -w --preserveWatchOutput",
-    "noticer": "pnpm run build && node dist/bin/noticer.js",
-    "publish-pkg": "pnpm run build && pnpm publish --access public --no-git-checks",
-    "postinstall": "pnpm noticer show"
+    "noticer": "bun run build && bun dist/bin/noticer.js",
+    "publish-pkg": "bun run build && bun publish --access public",
+    "postinstall": "node dist/bin/noticer.js show"
   },
   "dependencies": {
     "chalk": "^4.1.2",
@@ -29,12 +30,11 @@
     "prompts": "^2.4.2"
   },
   "devDependencies": {
+    "@types/bun": "^1.1.0",
     "@types/fs-extra": "^9.0.13",
     "@types/node": "^20.12.12",
     "@types/prompts": "^2.4.9",
     "@biomejs/biome": "^1.5.3",
-    "ts-node": "^10.9.2",
-    "typescript": "5.2.2",
-    "vitest": "^3.1.1"
+    "typescript": "5.2.2"
   }
 }

@@ -468,10 +468,13 @@ export async function run(options: RunOptions = {}): Promise<void> {
 /**
  * Detects which package manager is being used in the repository
  * @param repoRoot - The root directory of the repository
- * @returns The detected package manager command ('npm', 'pnpm', or 'yarn')
+ * @returns The detected package manager command ('bun', 'pnpm', 'yarn', or 'npm')
  */
 export function detectPackageManager(repoRoot: string): string {
   // Check for lock files in order of preference
+  if (fs.existsSync(path.join(repoRoot, 'bun.lockb')) || fs.existsSync(path.join(repoRoot, 'bun.lock'))) {
+    return 'bun'
+  }
   if (fs.existsSync(path.join(repoRoot, 'pnpm-lock.yaml'))) {
     return 'pnpm'
   }

@@ -5,34 +5,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Development Commands
 
 ```bash
-# Run nvm use first to ensure correct Node version and pnpm availability
-nvm use
+# Build the project (Node.js-compatible output for npm)
+bun run build
 
-# Build the project
-pnpm run build
+# Build the standalone executable (for local testing)
+bun run build:bundle
 
-# Run tests (builds first, then runs vitest)
-pnpm run test
+# Run tests (builds first, then runs bun test)
+bun run test
 
 # Run a single test file
-pnpm run build && pnpm vitest run src/noticer.spec.ts
+bun run build && bun test src/noticer.spec.ts
 
 # Lint and auto-fix
-pnpm run lint
+bun run lint
 
 # Watch mode for development
-pnpm run watch
+bun run watch
 
 # Run noticer locally during development
-pnpm run noticer <command>
+bun run noticer <command>
 ```
+
+## Distribution
+
+### npm (for Node.js projects)
+```bash
+bun run publish-pkg
+```
+Publishes the unbundled Node.js version to npm.
+
+### GitHub Releases (standalone executables)
+Push a version tag to trigger the release workflow:
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+This builds executables for linux-x64, darwin-x64, darwin-arm64, and windows-x64.
+
+### One-liner install (standalone)
+```bash
+curl -fsSL https://raw.githubusercontent.com/zdavison/noticer/main/install.sh | sh
+```
+
+## Build Outputs
+
+1. **npm package** (`dist/bin/noticer.js`, `dist/lib.js`, etc.) - Non-bundled ES modules for Node.js projects
+2. **Standalone executables** (GitHub Releases) - Platform-specific binaries for non-Node.js environments
 
 ## Project Tools
 
 - **jj** for version control (also supports git)
-- **nvm** for managing Node version
-- **pnpm** for package management
-- **vitest** for tests
+- **bun** for package management, building, and testing
 - **biome** for linting
 
 ## Architecture
