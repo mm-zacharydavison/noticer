@@ -243,22 +243,14 @@ async function promptAndExecuteCommand(command: string, repoRoot: string, autoEx
     return
   }
 
-  // If we got a TTY stream, temporarily replace stdin
-  const originalStdin = process.stdin
-  if (ttyStream) {
-    Object.defineProperty(process, 'stdin', {
-      value: ttyStream,
-      writable: true,
-      configurable: true
-    })
-  }
-
   try {
     const response = await prompts({
       type: 'confirm',
       name: 'execute',
       message: `Execute command: ${chalk.yellow(command)}?`,
-      initial: false
+      initial: false,
+      stdin: ttyStream ?? process.stdin,
+      stdout: process.stdout
     })
 
     if (response.execute) {
@@ -267,13 +259,7 @@ async function promptAndExecuteCommand(command: string, repoRoot: string, autoEx
   } catch (error) {
     // Handle prompts cancellation gracefully
   } finally {
-    // Restore original stdin
     if (ttyStream) {
-      Object.defineProperty(process, 'stdin', {
-        value: originalStdin,
-        writable: true,
-        configurable: true
-      })
       ttyStream.close()
     }
   }
