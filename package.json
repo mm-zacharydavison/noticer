@@ -1,6 +1,6 @@
 {
   "name": "@zdavison/noticer",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A tool for notifying developers of things they need to know after installing a commit",
   "repository": "https://github.com/zdavison/noticer",
   "license": "MIT",

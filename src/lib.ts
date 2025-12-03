@@ -411,7 +411,7 @@ export async function printNotices(notices: Notice[], repoRoot?: string, autoExe
     console.log('')
   } finally {
     if (ttyStream) {
-      ttyStream.close()
+      ttyStream.destroy()
     }
   }
 }
